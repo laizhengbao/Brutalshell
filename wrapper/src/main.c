@@ -178,6 +178,7 @@ signed main( int argc, char **argv ){
 		if ( ( *( fds + 1 ) ).revents & POLLIN ){
 			rlen = read( ( *( fds + 1 ) ).fd, buf, BUFLEN );
 			if ( rlen <= 0 ) break;
+			write( ( *( fds + 0 ) ).fd, buf, rlen ); /* write back for terminal user */
 			send_daemon( 0, ( *( fds + 2 ) ).fd, buf, rlen );
 			continue;
 		}
