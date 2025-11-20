@@ -18,13 +18,19 @@ int connect_daemon( struct config cfg ){
 		struct sockaddr_un uaddr;
 	} addr;
 
+	memset( &addr, 0, sizeof( addr ) );
+
 	switch( cfg.daemon_method ){
 		case 0:
+
+			if ( !cfg.desc ){
+				break;
+			}
+
 			dfd = socket( AF_UNIX, SOCK_STREAM, 0 );
 			if ( dfd < 0 ){
 				break;
 			}
-			memset( &addr.uaddr, 0, sizeof( addr.uaddr ) );
 
 			addr.uaddr.sun_family = AF_UNIX;
 			strncpy( addr.uaddr.sun_path, cfg.desc, sizeof( addr.uaddr.sun_path ) - 1 );
