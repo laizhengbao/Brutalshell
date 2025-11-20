@@ -62,7 +62,7 @@ signed main( int argc, char **argv ){
 	}
 
 	if ( ( err = read_pty() ) < 0 ){
-		logerr( "Failed to get pty attribute\n", 26 );
+		logerr( "Failed to get pty attribute\n", 28 );
 		return err;
 	}
 
