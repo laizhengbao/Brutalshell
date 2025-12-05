@@ -37,6 +37,7 @@ int connect_daemon( struct config cfg ){
 
 			if ( connect( dfd, &addr.addr, sizeof( addr.uaddr ) ) < 0 ){
 				close( dfd );
+				dfd = -1;
 			}
 
 			break;
