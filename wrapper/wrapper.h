@@ -10,7 +10,16 @@ extern struct termios origin;
 extern int loglevel;
 extern int logfd;
 
-int connect_daemon( const char *restrict, int method, ... );
+struct config {
+	int logfd;
+	char **argv;
+	int daemon_method;
+	void *desc;
+	size_t len;
+};
+
+int connect_daemon( struct config );
+int get_session ( int );
 int send_daemon( int method, int fd, char *restrict, ssize_t );
 
 int read_pty( void );
@@ -19,7 +28,7 @@ void reset_pty( void );
 
 void usage( const char *restrict );
 
-void get_configure( int, char **, const char *restrict );
+struct config get_configure( int, char **restrict );
 
 enum LOGLEVVELS {
 	log_error,

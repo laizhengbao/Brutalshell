@@ -14,16 +14,13 @@
 #include <fcntl.h>
 
 #include <alloca.h>
+#include <signal.h>
 
 #include "wrapper.h"
 
 struct termios origin;
 int loglevel;
 int logfd;
-
-#ifndef BSH_CONFIGPATH
-#define BSH_CONFIGPATH "/etc/brutalshell/config.conf"
-#endif
 
 #ifndef BUFLEN
 #define BUFLEN 1024
@@ -38,8 +35,6 @@ int logfd;
 	loggin( log_error, "Error: ", error, 7 + len )
 
 signed main( int argc, char **argv ){
-
-	register char **child_exec;
 
 	register int err;
 
@@ -57,23 +52,16 @@ signed main( int argc, char **argv ){
 	register char *buf;
 	register ssize_t rlen;
 
-	get_configure( argc, argv, BSH_CONFIGPATH );
+	register struct config cfg = {};
 
-	if ( argc < 2 ){
-		child_exec = alloca( sizeof( *child_exec ) * 2 );
-		memset( child_exec, 0, sizeof( child_exec ) * 2 );
-		*child_exec = "/bin/sh";
-	} else {
-		if ( !strcmp( "?", *( argv + 1 ) ) ){
-			usage( *argv );
-			return EXIT_FAILURE;
-		}
+	cfg = get_configure( argc, argv );
 
-		child_exec = argv + 1;
+	if ( !cfg.argv ){
+		return EXIT_FAILURE;
 	}
 
 	if ( ( err = read_pty() ) < 0 ){
-		logerr( "Failed to get pty attribute\n", 26 );
+		logerr( "Failed to get pty attribute\n", 28 );
 		return err;
 	}
 
@@ -115,6 +103,9 @@ signed main( int argc, char **argv ){
 	if ( !pid ){
 		close( master );
 
+		free( cfg.desc );
+		cfg.desc = NULL;
+
 		if ( setsid() < 0 ){
 			logerr( "Failed to setsid\n", 18 );
 
@@ -134,15 +125,46 @@ signed main( int argc, char **argv ){
 
 		close( master );
 
-		execvp( *child_exec, child_exec );
+		execvp( *cfg.argv, cfg.argv );
 
 		loggin( log_normal, "ERROR: ", "unable to run", 7 + 14 );
 		return EXIT_FAILURE;
 	}
 
+	if ( cfg.argv && cfg.argv != argv + 1 ){
+		err = 0;
+		while ( *( cfg.argv + err ) ){
+#			ifdef DBG
+			fprintf( stderr, "%s\n", *( cfg.argv + err ) );
+#			endif
+			free( *( cfg.argv + err ) );
+			err++;
+		}
+		free( cfg.argv );
+		err = 0;
+	}
+
+	cfg.argv = NULL;
+
 	set_pty();
 
-	daemon_fd = connect_daemon( *child_exec, 0 );
+	daemon_fd = connect_daemon( cfg );
+	free( cfg.desc );
+	cfg.desc = NULL;
+
+	if ( daemon_fd < 0 ){
+		logerr( "Failed to connect the daemon\n", 29 );
+		kill( pid, SIGTERM );
+		waitpid( pid, NULL, 0 );
+		goto ONERR;
+	}
+
+	if ( !get_session( daemon_fd ) ){
+		logerr( "Failed to get session id\n", 21 );
+		kill( pid, SIGTERM );
+		waitpid( pid, NULL, 0 );
+		goto ONERR;
+	}
 
 	fds = alloca( sizeof( *fds ) * 3 );
 
@@ -158,7 +180,7 @@ signed main( int argc, char **argv ){
 	buf = malloc( BUFLEN );
 
 	while ( 69 ){
-		err = poll( fds, 2, -1 );
+		err = poll( fds, 3, -1 );
 		if ( err < 0 ){
 			logerr( "Failed to poll\n", 16 );
 			break;
@@ -168,7 +190,6 @@ signed main( int argc, char **argv ){
 			rlen = read( ( *( fds + 0 ) ).fd, buf, BUFLEN );
 			if ( rlen <= 0 ) break;
 			write( ( *( fds + 1 ) ).fd, buf, rlen );
-			continue;
 		}
 
 		if ( ( *( fds + 1 ) ).revents & POLLHUP ) {
@@ -179,19 +200,21 @@ signed main( int argc, char **argv ){
 			rlen = read( ( *( fds + 1 ) ).fd, buf, BUFLEN );
 			if ( rlen <= 0 ) break;
 			write( ( *( fds + 0 ) ).fd, buf, rlen ); /* write back for terminal user */
-			send_daemon( 0, ( *( fds + 2 ) ).fd, buf, rlen );
-			continue;
+			send_daemon( cfg.daemon_method, ( *( fds + 2 ) ).fd, buf, rlen );
 		}
 
 		if ( ( *( fds + 2 ) ).revents & POLLIN ){
 			rlen = read( ( *( fds + 2 ) ).fd, buf, BUFLEN );
 			if ( rlen <= 0 ) break;
-			write( ( *( fds + 0 ) ).fd, buf, rlen );
-			continue;
+			write( ( *( fds + 1 ) ).fd, buf, rlen );
 		}
 	}
 
+	close( daemon_fd );
+
 	free( buf );
+
+ONERR:
 
 	close( master );
 	status = alloca( sizeof( *status ) );
