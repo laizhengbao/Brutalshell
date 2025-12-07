@@ -1,4 +1,5 @@
 import httpx
+import re
 
 """
 Client that sends requests directly to vLLM servers.
@@ -8,15 +9,31 @@ and a prompt. It then POSTs the vLLM-style body directly to the chosen
 upstream endpoint and prints the response.
 """
 
+proxy_host = "http://100.68.65.78:8887"
+
 def build_body(prompt: str):
+    prompt = prompt.lstrip("$ ")
+    
     # Minimal chat-style body compatible with many vLLM endpoints
-    return {"messages": [{"role": "user", "content": prompt}]}
+    system_prompt = (
+        "You are a smart CLI helper with two modes:\n"
+        "1. AUTOCOMPLETE: If input is a partial command, output ONLY the missing suffix.\n"
+        "2. TRANSLATE: If input is natural language (English/Chinese) asking for a task, output the FULL command.\n"
+        "Format: Always wrap the final result strictly in [[ ]]."
+    )
+    # print(prompt.encode())
+    return {
+        "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": prompt}
+        ],
+        "temperature": 0.5
+    }
 
 
 def completions(prompt: str, host: str):
     path = "chat/completions"
     body = build_body(prompt)
-
     url = host.rstrip("/") + "/" + path.lstrip("/")
 
     try:
@@ -26,9 +43,10 @@ def completions(prompt: str, host: str):
         print("Request error:", e)
         return
 
-    print(f"Upstream URL: {url}  Status: {resp.status_code}")
+    # print(f"Upstream URL: {url}  Status: {resp.status_code}")
     try:
-        print(resp.json())
+        suffix = re.findall(r'\[\[(.*?)\]\]', resp.json()['choices'][0]['message']["content"])[-1]
+        return suffix
+        # return resp.json()['choices'][0]['message']["content"]
     except Exception:
-        print(resp.text)
-
+        print("exclamation mark problem occurred!")
