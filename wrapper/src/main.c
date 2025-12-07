@@ -2,7 +2,6 @@
 #define _XOPEN_SOURCE 600
 #define _POSIX_C_SOURCE 200809L
 
-#include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -17,6 +16,10 @@
 #include <signal.h>
 
 #include "wrapper.h"
+
+#ifdef DBG
+#include <stdio.h>
+#endif
 
 struct termios origin;
 int loglevel;

@@ -9,9 +9,13 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
+#include <errno.h>
+
 int connect_daemon( struct config cfg ){
 
 	register int dfd = -1;
+
+	register char *errstr;
 
 	union {
 		struct sockaddr addr;
@@ -36,6 +40,9 @@ int connect_daemon( struct config cfg ){
 			strncpy( addr.uaddr.sun_path, cfg.desc, sizeof( addr.uaddr.sun_path ) - 1 );
 
 			if ( connect( dfd, &addr.addr, sizeof( addr.uaddr ) ) < 0 ){
+				errstr = strerror( errno );
+				write( logfd, errstr, strlen( errstr ) );
+				write( logfd, "\n", 1 );
 				close( dfd );
 				dfd = -1;
 			}
