@@ -1,10 +1,34 @@
-cmake_minimum_required(VERSION 3.20.0)
-project(helper VERSION 0.0.0)
 
-set(CMAKE_CXX_STANDARD 17)
+cmake_minimum_required(VERSION 3.20)
+project(helper VERSION 0.0.0 LANGUAGES C)
 
-file(GLOB_RECURSE SRC_FILES ./src/*.cpp)
+set(CMAKE_C_STANDARD 99)
+add_definitions(-std=gnu99 -O3 -Wall -fPIC)
 
-add_executable(${PROJECT_NAME} ${SRC_FILES})
+option(ENABLE_DEBUG "compile for debug" OFF)
+if (ENABLE_DEBUG)
+	add_definitions(-DDBG -g)
+endif()
 
-install(TARGETS ${PROJECT_NAME})
+file(GLOB_RECURSE C_FILES src/*.c)
+set_source_files_properties(${C_FILES} PROPERTIES LANGUAGE C)
+
+set(TARGET_NAME helper)
+add_executable(${TARGET_NAME} ${C_FILES})
+target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_SOURCE_DIR})
+
+install(TARGETS ${TARGET_NAME}
+	RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin
+)
+
+add_custom_target(clean_all
+	COMMAND ${CMAKE_COMMAND} -E remove_directory ${CMAKE_BINARY_DIR}
+	COMMAND ${CMAKE_COMMAND} -E echo "Cleaning... Done"
+)
+
+set_target_properties(${TARGET_NAME} PROPERTIES
+	ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
+	LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
+	RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+)
+
