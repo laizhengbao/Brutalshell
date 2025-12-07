@@ -137,6 +137,8 @@ struct config _get_yaml( void *f, struct config cfg ){
 	yaml_parser_t par;
 	yaml_event_t eve;
 
+	k = NULL;
+
 	if ( !yaml_parser_initialize( &par ) ){
 		goto RET;
 	}
@@ -165,13 +167,17 @@ struct config _get_yaml( void *f, struct config cfg ){
 
 				if ( !is_val ){
 
-					k = v;
+					if ( k ){
+						free( k );
+					}
+
+					k = strdup( v );
 					is_val = 1;
 
 					is_arg = k && !strcmp( k, "shell" );
 
 #					ifdef DBG
-					fprintf( stderr, "KEY: %s\n", v );
+					fprintf( stderr, "KEY: [%s]\n", v );
 #					endif
 
 				} else {
@@ -259,6 +265,10 @@ struct config _get_yaml( void *f, struct config cfg ){
 	yaml_parser_delete( &par );
 
 RET:
+
+	if ( k ){
+		free( k );
+	}
 
 	return cfg;
 }
