@@ -9,7 +9,6 @@
 
 #include <unistd.h>
 #include <fcntl.h>
-#include <alloca.h>
 #include <limits.h>
 
 #ifndef BUFLEN
