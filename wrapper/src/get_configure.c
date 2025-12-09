@@ -67,6 +67,10 @@ struct config get_configure( int argc, char **restrict argv ){
 
 		if ( ( fd = open( getenv( "BSH_CFG" ), O_RDONLY ) ) < 0 ){
 
+			if ( ( fd = open( "config.conf", O_RDONLY ) ) >= 0 ){
+				goto SUCCESS;
+			}
+
 			cfg.desc = getenv( "HOME" );
 			if ( !cfg.desc ){
 				goto RET;
@@ -86,6 +90,8 @@ struct config get_configure( int argc, char **restrict argv ){
 
 		}
 	}
+
+SUCCESS:
 
 	file = fdopen( fd, "r" );
 
