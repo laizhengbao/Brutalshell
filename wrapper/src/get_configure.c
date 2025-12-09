@@ -42,6 +42,8 @@ struct config get_configure( int argc, char **restrict argv ){
 
 	register char *restrict cfg_home;
 
+	register ssize_t home_len;
+
 	cfg.logfd = logfd = STDERR_FILENO;
 
 	cfg.argv = NULL;
@@ -75,10 +77,16 @@ struct config get_configure( int argc, char **restrict argv ){
 			if ( !cfg.desc ){
 				goto RET;
 			}
-			cfg_home = malloc( PATH_MAX );
-			memset( cfg_home, 0, PATH_MAX );
-			cfg.desc = strcpy( cfg_home, cfg.desc );
-			strncpy( cfg.desc, "/.config/bsh/config.conf", PATH_MAX - strlen( cfg_home ) - 1 );
+
+			home_len = strlen( cfg.desc );
+			if ( home_len > PATH_MAX ){
+				home_len = PATH_MAX;
+			}
+
+			cfg_home = malloc( PATH_MAX + 1 );
+			memset( cfg_home, 0, PATH_MAX + 1 );
+			cfg.desc = stpncpy( cfg_home, cfg.desc, home_len );
+			strncpy( cfg.desc, "/.config/bsh/config.conf", PATH_MAX - home_len );
 
 			cfg.desc = NULL;
 
