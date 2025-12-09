@@ -65,6 +65,8 @@ signed main( int argc, char **argv ){
 
 	register struct config cfg = {};
 
+	status = NULL;
+
 	cfg = get_configure( argc, argv );
 
 	if ( !cfg.argv ){
@@ -104,6 +106,21 @@ signed main( int argc, char **argv ){
 		return EXIT_FAILURE;
 	}
 
+	daemon_fd = connect_daemon( cfg );
+
+	free( cfg.desc );
+	cfg.desc = NULL;
+
+	if ( daemon_fd < 0 ){
+		logerr( "Failed to connect the daemon\n", 29 );
+		goto ONERR;
+	}
+
+	if ( get_session( daemon_fd ) ){
+		logerr( "Failed to get session id\n", 21 );
+		goto ONERR;
+	}
+
 
 	if ( ( pid = fork() ) < 0 ){
 		logerr( "Failed to fork\n", 16 );
@@ -113,9 +130,7 @@ signed main( int argc, char **argv ){
 
 	if ( !pid ){
 		close( master );
-
-		free( cfg.desc );
-		cfg.desc = NULL;
+		close( daemon_fd );
 
 		if ( setsid() < 0 ){
 			logerr( "Failed to setsid\n", 18 );
@@ -158,24 +173,6 @@ signed main( int argc, char **argv ){
 	cfg.argv = NULL;
 
 	set_pty();
-
-	daemon_fd = connect_daemon( cfg );
-	free( cfg.desc );
-	cfg.desc = NULL;
-
-	if ( daemon_fd < 0 ){
-		logerr( "Failed to connect the daemon\n", 29 );
-		kill( pid, SIGTERM );
-		waitpid( pid, NULL, 0 );
-		goto ONERR;
-	}
-
-	if ( get_session( daemon_fd ) ){
-		logerr( "Failed to get session id\n", 21 );
-		kill( pid, SIGTERM );
-		waitpid( pid, NULL, 0 );
-		goto ONERR;
-	}
 
 	fds = alloca( sizeof( *fds ) * 3 );
 
@@ -225,11 +222,12 @@ signed main( int argc, char **argv ){
 
 	free( buf );
 
+	status = alloca( sizeof( *status ) );
+	waitpid( pid, status, 0 );
+
 ONERR:
 
 	close( master );
-	status = alloca( sizeof( *status ) );
-	waitpid( pid, status, 0 );
 
 	return WEXITSTATUS( *status );
 }
