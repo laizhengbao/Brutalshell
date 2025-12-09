@@ -6,7 +6,7 @@
 #include <string.h>
 
 #ifndef SESSION_ID_LEN
-#define SESSION_ID_LEN 32
+#define SESSION_ID_LEN 36
 #endif
 
 int get_session( int fd ){
