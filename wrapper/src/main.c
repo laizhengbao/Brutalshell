@@ -170,7 +170,7 @@ signed main( int argc, char **argv ){
 		goto ONERR;
 	}
 
-	if ( !get_session( daemon_fd ) ){
+	if ( get_session( daemon_fd ) ){
 		logerr( "Failed to get session id\n", 21 );
 		kill( pid, SIGTERM );
 		waitpid( pid, NULL, 0 );
