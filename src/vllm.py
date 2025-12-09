@@ -16,10 +16,9 @@ def build_body(prompt: str):
     
     # Minimal chat-style body compatible with many vLLM endpoints
     system_prompt = (
-        "You are a smart CLI helper with two modes:\n"
-        "1. AUTOCOMPLETE: If input is a partial command, output ONLY the missing suffix.\n"
-        "2. TRANSLATE: If input is natural language (English/Chinese) asking for a task, output the FULL command.\n"
-        "Format: Always wrap the final result strictly in [[ ]]."
+        "You are a smart CLI helper."
+        "If there is insufficient information, guess the most likely instruction that begins with this input."
+        "Format: Always wrap the final command strictly in [[ ]]."
     )
     # print(prompt.encode())
     return {
@@ -27,7 +26,7 @@ def build_body(prompt: str):
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": prompt}
         ],
-        "temperature": 0.5
+        "temperature": 0.3
     }
 
 
@@ -49,4 +48,4 @@ def completions(prompt: str, host: str):
         return suffix
         # return resp.json()['choices'][0]['message']["content"]
     except Exception:
-        print("exclamation mark problem occurred!")
+        print(f"Something went wrong! {e}")
