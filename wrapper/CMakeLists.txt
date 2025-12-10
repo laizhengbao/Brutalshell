@@ -7,6 +7,7 @@ option(ENABLE_DEBUG "compile for debug" OFF)
 option(BUILD_STATIC "build static lib" OFF)
 option(BUILD_SHARED "build shared lib" OFF)
 option(STATIC_FIRST "static lib has higher priority" ON)
+option(ENABLE_TEST "build tests" ON)
 
 #set(CMAKE_INSTALL_PREFIX "/opt/tsl" CACHE STRING "Default installation directory")
 
@@ -24,13 +25,13 @@ list(FILTER LIB_SRC EXCLUDE REGEX ".*/main\\.c$")
 
 set_source_files_properties(${C_FILES} PROPERTIES LANGUAGE C)
 
-set(TARGET_NAME bsh)
+set(target_name bsh)
 set(TARGET_LIB bsh_wrapper)
 set(TARGET_LIBS "")
 set(MAIN_LIB "")
-add_executable(${TARGET_NAME} ${C_FILES})
-target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_SOURCE_DIR})
-target_link_libraries(${TARGET_NAME} PRIVATE yaml)
+add_executable(${target_name} ${C_FILES})
+target_include_directories(${target_name} PRIVATE ${CMAKE_SOURCE_DIR})
+target_link_libraries(${target_name} PRIVATE yaml)
 
 if (BUILD_STATIC)
 	add_library(${TARGET_LIB}_STATIC STATIC ${LIB_SRC})
@@ -66,19 +67,30 @@ if (MAIN_LIB)
 	add_library(wrapper_lib ALIAS ${MAIN_LIB})
 endif()
 
-#install(TARGETS ${TARGET_NAME} ${TARGET_NAME}_static
-install(TARGETS ${TARGET_NAME} ${TARGET_LIBS}
+#install(TARGETS ${target_name} ${target_name}_static
+install(TARGETS ${target_name} ${TARGET_LIBS}
 	ARCHIVE DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
 	LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
 	RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin
 )
+
+if (ENABLE_TEST)
+	include(CTest)
+	enable_testing()
+
+	file(GLOB_RECURSE TEST_SRCS test/test_*.c)
+	add_executable(${target_name}_test test/main.c ${TEST_SRCS} ${LIB_SRC})
+	target_include_directories(${target_name}_test PRIVATE ${CMAKE_SOURCE_DIR})
+	target_link_libraries(${target_name}_test PRIVATE yaml)
+	add_test(NAME ${target_name}_test COMMAND ${target_name}_test)
+endif()
 
 add_custom_target(clean_all
 	COMMAND ${CMAKE_COMMAND} -E remove_directory ${CMAKE_BINARY_DIR}
 	COMMAND ${CMAKE_COMMAND} -E echo "Cleaning... Done"
 )
 
-#set_target_properties(${TARGET_NAME} ${TARGET_NAME}_static PROPERTIES
+#set_target_properties(${target_name} ${target_name}_static PROPERTIES
 set_target_properties(${INSTALL_TARGETS} PROPERTIES
 	ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
 	LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib

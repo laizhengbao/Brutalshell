@@ -7,4 +7,12 @@ requires-python = ">=3.12"
 dependencies = [
     "httpx>=0.28.1",
     "pyte>=0.8.2",
+    "pytest>=9.0.2",
 ]
+
+[project.optional-dependencies]
+dev = ["pytest>=9.0.2"]
+[tool.pytest.ini_options]
+testpaths = ["src/test"]
+pythonpath = ["src"]
+addopts = ["-ra"]
