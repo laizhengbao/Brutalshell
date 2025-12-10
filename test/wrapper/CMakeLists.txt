@@ -4,9 +4,6 @@ project(wrapper_test VERSION 0.1 LANGUAGES C)
 
 set(CMAKE_C_STANDARD 99)
 
-include(CTest)
-enable_testing()
-
 set(TARGET_NAME ${PROJECT_NAME})
 
 file(GLOB_RECURSE TEST_SRCS ./test_*.c)

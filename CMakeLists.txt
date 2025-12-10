@@ -15,5 +15,7 @@ add_subdirectory(wrapper)
 add_subdirectory(helper)
 
 if (BUILD_TEST)
+	include(CTest)
+	enable_testing()
 	add_subdirectory(test)
 endif()
