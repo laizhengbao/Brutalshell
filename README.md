@@ -43,6 +43,15 @@ cmake --build build
 cd ..
 ```
 
+5. Build the helper
+
+```bash
+cd helper
+cmake -B build
+cmake --build build
+cd ..
+```
+
 ### Run
 
 To execute wrapper + daemon, it's recommended to use tmux.
@@ -57,4 +66,18 @@ On second tmux pane, run the wrapper:
 
 ```bash
 ./wrapper/build/bsh
+```
+
+## Usage
+
+If you have installed the helper, you can launch wrapper and run:
+
+```bash
+helper list files in current directory
+```
+
+If not, you can run:
+
+```bash
+./helper/build/helper list files in current directory
 ```
