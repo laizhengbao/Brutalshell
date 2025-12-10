@@ -8,6 +8,7 @@ dependencies = [
     "httpx>=0.28.1",
     "pyte>=0.8.2",
     "pytest>=9.0.2",
+    "requests>=2.32.5",
 ]
 
 [project.optional-dependencies]

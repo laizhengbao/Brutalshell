@@ -1,5 +1,6 @@
-import httpx
+import requests
 import re
+import urllib3
 
 """
 Client that sends requests directly to vLLM servers.
@@ -10,6 +11,7 @@ upstream endpoint and prints the response.
 """
 
 proxy_host = "http://100.68.65.78:8887"
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 def build_body(prompt: str):
     prompt = prompt.lstrip("$ ")
@@ -37,9 +39,8 @@ def completions(prompt: str, host: str):
     url = host.rstrip("/") + "/" + path.lstrip("/")
 
     try:
-        with httpx.Client(timeout=120.0) as client:
-            resp = client.post(url, json=body, headers={"Content-Type": "application/json"})
-    except httpx.RequestError as e:
+        resp = requests.post(url, json=body, headers={"Content-Type": "application/json"}, timeout=120.0, verify=False)
+    except requests.RequestException as e:
         print("Request error:", e)
         return
 
