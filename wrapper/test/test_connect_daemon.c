@@ -22,6 +22,7 @@ int test_connect_daemon(void) {
     unlink(tmpl);
 
     if (fd != -1) {
+        close(fd);
         return 1; /* test failed */
     }
     return 0; /* test passed */
