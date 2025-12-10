@@ -90,7 +90,7 @@ This project has 3 main components:
 2. **Helper**: A utility that processes natural language commands and translates them into shell commands.
 3. **Daemon**: A background service that manages communication between the wrapper and helper, and handles LLM interactions.
 
-Before you pushing any changes, make sure to test your code thoroughly.
+Before pushing any changes, make sure to test your code thoroughly.
 
 ```bash
 # Daemon tests
