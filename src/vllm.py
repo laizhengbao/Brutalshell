@@ -13,9 +13,10 @@ upstream endpoint and prints the response.
 proxy_host = "http://100.68.65.78:8887"
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+
 def build_body(prompt: str):
     prompt = prompt.lstrip("$ ")
-    
+
     # Minimal chat-style body compatible with many vLLM endpoints
     system_prompt = (
         "You are a smart CLI helper."
@@ -26,10 +27,10 @@ def build_body(prompt: str):
     # print(prompt.encode())
     return {
         "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": prompt}
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": prompt},
         ],
-        "temperature": 0.3
+        "temperature": 0.3,
     }
 
 
@@ -39,8 +40,16 @@ def completions(prompt: str, host: str):
     url = host.rstrip("/") + "/" + path.lstrip("/")
 
     try:
-        resp = requests.post(url, json=body, headers={"Content-Type": "application/json"}, timeout=10.0, verify=False)
-        suffix = re.findall(r'\[\[(.*?)\]\]', resp.json()['choices'][0]['message']["content"])[-1]
+        resp = requests.post(
+            url,
+            json=body,
+            headers={"Content-Type": "application/json"},
+            timeout=10.0,
+            verify=False,
+        )
+        suffix = re.findall(
+            r"\[\[(.*?)\]\]", resp.json()["choices"][0]["message"]["content"]
+        )[-1]
         return suffix
     except requests.RequestException as e:
         print("Request error:", e)
