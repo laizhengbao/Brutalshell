@@ -33,10 +33,6 @@ struct termios origin;
 int loglevel;
 int logfd;
 
-#ifndef BUFLEN
-#define BUFLEN 1024
-#endif
-
 #define loggin( thres, hint, msg, len ) \
 	if ( loglevel <= thres ){ \
 		write( logfd, hint msg, len ); \
@@ -60,7 +56,8 @@ signed main( int argc, char **argv ){
 	register int *status;
 
 	register struct pollfd *fds;
-	register char *buf;
+	register struct ring_buffer *bufs;
+	register void *buf;
 	register ssize_t rlen;
 
 	register struct config cfg = {};
@@ -175,17 +172,33 @@ signed main( int argc, char **argv ){
 	set_pty();
 
 	fds = alloca( sizeof( *fds ) * 3 );
+	bufs = alloca( sizeof( *bufs ) * 2 );
 
 	( *( fds + 0 ) ).fd = STDIN_FILENO;
-	( *( fds + 0 ) ).events = POLLIN;
-
 	( *( fds + 1 ) ).fd = master;
-	( *( fds + 1 ) ).events = POLLIN;
-
 	( *( fds + 2 ) ).fd = daemon_fd;
-	( *( fds + 2 ) ).events = POLLIN;
 
+	memset( bufs, 0, sizeof( *bufs ) * 2 );
+
+	( *( bufs + 0 ) ).buf = malloc( BUFLEN );
+	( *( bufs + 1 ) ).buf = malloc( BUFLEN );
+	( *( bufs + 0 ) ).buflen = BUFLEN;
+	( *( bufs + 1 ) ).buflen = BUFLEN;
 	buf = malloc( BUFLEN );
+
+	if (
+		!( *( bufs + 0 ) ).buf ||
+		!( *( bufs + 1 ) ).buf ||
+		!buf
+	) {
+		err = EXIT_FAILURE;
+		goto CLEANUP;
+	}
+
+	err = 3;
+	while ( err-- ){
+		( *( fds + err ) ).events = POLLIN;
+	}
 
 	while ( 69 ){
 		err = poll( fds, 3, -1 );
@@ -194,34 +207,70 @@ signed main( int argc, char **argv ){
 			break;
 		}
 
-		if ( ( *( fds + 0 ) ).revents & POLLIN ){
-			rlen = read( ( *( fds + 0 ) ).fd, buf, BUFLEN );
-			if ( rlen <= 0 ) break;
-			write( ( *( fds + 1 ) ).fd, buf, rlen );
-		}
-
-		if ( ( *( fds + 1 ) ).revents & POLLHUP ) {
+		if ( ( *( fds + 1 ) ).revents & ( POLLHUP | POLLERR | POLLNVAL ) ) {
+			err = EXIT_FAILURE;
 			break;
 		}
 
-		if ( ( *( fds + 1 ) ).revents & POLLIN ){
-			rlen = read( ( *( fds + 1 ) ).fd, buf, BUFLEN );
-			if ( rlen <= 0 ) break;
-			write( ( *( fds + 0 ) ).fd, buf, rlen ); /* write back for terminal user */
-			send_daemon( cfg.daemon_method, ( *( fds + 2 ) ).fd, buf, rlen );
+		if ( ( *( fds + 2 ) ).revents & ( POLLHUP | POLLERR | POLLNVAL ) ) {
+			loggin( log_normal, "Daemon: ", "Disconnected\n", 21 );
+			err = EXIT_FAILURE;
+			break;
 		}
 
-		if ( ( *( fds + 2 ) ).revents & POLLIN ){
-			rlen = read( ( *( fds + 2 ) ).fd, buf, BUFLEN );
-			if ( rlen <= 0 ) break;
-			write( ( *( fds + 1 ) ).fd, buf, rlen );
+		if (
+			( *( fds + 1 ) ).revents & POLLOUT &&
+			( err = ( nb_write( fds + 1, bufs + 0 ) < 0 ) )
+		){
+			break;
+		}
+
+		if (
+			( *( fds + 2 ) ).revents & POLLOUT &&
+			/* give len=0 for ring bufer, else blocking write */
+			( err = ( send_daemon( cfg.daemon_method, fds + 2, bufs + 1, 0 ) < 0 ) )
+		){
+			break;
+		}
+
+		if ( ( *( fds + 0 ) ).revents & POLLIN ){
+			if ( ( err = ( nb_read( fds + 0, bufs + 0 ) < 0 ) ) ) {
+				break;
+			}
+			( *( fds + 1 ) ).events |= POLLOUT;
+		}
+
+		if ( ( *( fds + 1 ) ).revents & POLLIN ){
+			if ( ( err = ( rlen = nb_read( fds + 1, bufs + 1 ) ) < 0 ) ) {
+				break;
+			}
+			if ( ( err = ( !dump_ringbuf( buf, BUFLEN, bufs + 1 ) ) ) ) {
+				break;
+			}
+			if ( ( err = ( b_write( STDOUT_FILENO, buf, rlen ) < 0 ) ) ) { /* write back for user */
+				break;
+			}
+
+			( *( fds + 2 ) ).events |= POLLOUT;
+		}
+
+		if ( ( *( fds + 2 ) ).revents & POLLIN ) {
+			if ( ( err = ( nb_read( fds + 2, bufs + 0 ) < 0 ) ) ) {
+				break;
+			}
+			( *( fds + 1 ) ).events |= POLLOUT;
 		}
 	}
 
+CLEANUP:
+
 	close( daemon_fd );
 
+ 	free( ( *( bufs + 0 ) ).buf );
+ 	free( ( *( bufs + 1 ) ).buf );
 	free( buf );
 
+	kill( pid, SIGHUP );
 	status = alloca( sizeof( *status ) );
 	waitpid( pid, status, 0 );
 
@@ -229,5 +278,9 @@ ONERR:
 
 	close( master );
 
-	return WEXITSTATUS( *status );
+	if ( status ){
+		return WEXITSTATUS( *status );
+	}
+
+	return err;
 }
