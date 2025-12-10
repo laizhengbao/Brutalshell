@@ -23,8 +23,6 @@ struct config {
 };
 
 struct ring_buffer {
-	size_t head;
-	size_t tail;
 	size_t count;
 	size_t buflen;
 	char *buf;
