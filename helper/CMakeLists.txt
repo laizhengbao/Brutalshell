@@ -24,8 +24,8 @@ install(TARGETS ${TARGET_NAME}
 	RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin
 )
 
-option(ENABLE_TESTS "build tests" ON)
-if (ENABLE_TESTS)
+option(ENABLE_TEST "build tests" ON)
+if (ENABLE_TEST)
 	include(CTest)
 	enable_testing()
 
