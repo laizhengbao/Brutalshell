@@ -6,13 +6,17 @@
 #include <string.h>
 #include <stdlib.h>
 
-int send_daemon ( int method, int fd, char *restrict content, ssize_t len ){
+ssize_t send_daemon ( int method, void *restrict fd, void *restrict content, ssize_t len ){
 
-	register int ret = -1;
+	register ssize_t ret = -1;
 
 	switch ( method ){
 		case 0:
-			ret = ( write( fd, content, len ) != len );
+			if ( len ){
+				ret = b_write( *(int *)fd, content, len );
+			} else {
+				ret = nb_write( fd, content );
+			}
 
 			break;
 	}
