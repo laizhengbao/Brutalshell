@@ -25,6 +25,8 @@
 
 #include "wrapper.h"
 
+#include <errno.h>
+
 #ifdef DBG
 #include <stdio.h>
 #endif
@@ -41,6 +43,12 @@ int logfd;
 #define logerr( error, len ) \
 	loggin( log_error, "Error: ", error, 7 + len )
 
+void winch ( int );
+void empty_sigmask( void );
+int update_pty( int );
+
+volatile sig_atomic_t need_resieze = 0;
+
 signed main( int argc, char **argv ){
 
 	register int err;
@@ -54,6 +62,7 @@ signed main( int argc, char **argv ){
 	register pid_t pid;
 
 	register int *status;
+	register struct sigaction *sa;
 
 	register struct pollfd *fds;
 	register struct ring_buffer *bufs;
@@ -142,6 +151,16 @@ signed main( int argc, char **argv ){
 			return EXIT_FAILURE;
 		}
 
+		if ( ioctl( master, TIOCSCTTY, 0 ) < 0 ){
+			logerr( "ioctl TIOCSCTTY\n", 16 );
+		}
+
+		if ( tcsetpgrp( master, getpid() ) < 0 ){
+			logerr( "Failed to tcsetpgrp\n", 20 );
+		}
+
+		empty_sigmask();
+
 		dup2( master, STDIN_FILENO );
 		dup2( master, STDOUT_FILENO );
 		dup2( master, STDERR_FILENO );
@@ -170,6 +189,16 @@ signed main( int argc, char **argv ){
 	cfg.argv = NULL;
 
 	set_pty();
+
+	sa = alloca( sizeof( *sa ) );
+
+	sigemptyset( &( *sa ).sa_mask );
+	( *sa ).sa_handler = winch;
+	( *sa ).sa_flags = 0;
+
+	if ( sigaction( SIGWINCH, sa, NULL ) < 0 ){
+		goto ONERR;
+	}
 
 	fds = alloca( sizeof( *fds ) * 3 );
 	bufs = alloca( sizeof( *bufs ) * 2 );
@@ -201,8 +230,19 @@ signed main( int argc, char **argv ){
 	}
 
 	while ( 69 ){
+		if ( need_resieze ){
+			if ( update_pty( master ) ){
+				break;
+			}
+		}
+
 		err = poll( fds, 3, -1 );
+
 		if ( err < 0 ){
+			if ( errno == EINTR ){
+				continue;
+			}
+
 			logerr( "Failed to poll\n", 16 );
 			break;
 		}
@@ -283,4 +323,38 @@ ONERR:
 	}
 
 	return err;
+}
+
+void winch ( int sig ){
+	need_resieze = 1;
+}
+
+int update_pty( int fd ){
+	struct winsize ws;
+
+#	ifdef DBG
+	loggin( log_error, "INFO: ", "SIGWINCH\n", 15 );
+#	endif
+
+	if ( ioctl( STDOUT_FILENO, TIOCGWINSZ, &ws ) < 0 ){
+		logerr( "ioctl get\n", 10 );
+		return -1;
+	}
+	if ( ioctl( fd, TIOCSWINSZ, &ws ) < 0 ){
+		logerr( "ioctl set\n", 10 );
+		return -1;
+	}
+
+	return 0;
+}
+
+void empty_sigmask( void ){
+
+	static sigset_t mask;
+
+	need_resieze = 0;
+
+	sigemptyset( &mask );
+	sigprocmask( SIG_SETMASK, &mask, NULL );
+	signal( SIGWINCH, SIG_DFL );
 }
