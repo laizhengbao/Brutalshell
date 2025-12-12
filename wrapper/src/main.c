@@ -174,21 +174,6 @@ signed main( int argc, char **argv ){
 		return EXIT_FAILURE;
 	}
 
-	if ( cfg.argv && cfg.argv != argv + 1 ){
-		err = 0;
-		while ( *( cfg.argv + err ) ){
-#			ifdef DBG
-			fprintf( stderr, "%s\n", *( cfg.argv + err ) );
-#			endif
-			free( *( cfg.argv + err ) );
-			err++;
-		}
-		free( cfg.argv );
-		err = 0;
-	}
-
-	cfg.argv = NULL;
-
 	set_pty();
 
 	sa = alloca( sizeof( *sa ) );
@@ -318,6 +303,22 @@ CLEANUP:
 ONERR:
 
 	close( master );
+
+	if ( cfg.argv && cfg.argv != argv + 1 ){
+		err = 0;
+		while ( *( cfg.argv + err ) ){
+#			ifdef DBG
+			fprintf( stderr, "%s\n", *( cfg.argv + err ) );
+#			endif
+			free( *( cfg.argv + err ) );
+			err++;
+		}
+		free( cfg.argv );
+		err = 0;
+	}
+
+	cfg.argv = NULL;
+
 
 	if ( status ){
 		return WEXITSTATUS( *status );
