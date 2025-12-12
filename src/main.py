@@ -14,7 +14,7 @@ DAEMON_PATH = "/tmp/brutalshell.sock"
 session_lock = Lock()
 
 wrapper_sessions = {}
-'''
+"""
 {
     "session_id1": {
         "server": thread1,
@@ -28,8 +28,7 @@ wrapper_sessions = {}
     }
     ...
 }
-'''
-
+"""
 
 
 # Filter the control characters.
@@ -37,9 +36,9 @@ def content_filter(data: bytes):
     screen = pyte.Screen(80, 24)
     stream = pyte.Stream(screen)
 
-    text_data = data.decode('utf-8', errors="replace")
+    text_data = data.decode("utf-8", errors="replace")
     stream.feed(text_data)
-    
+
     lines = []
     for y in range(screen.lines):
         line_str = ""
@@ -49,58 +48,66 @@ def content_filter(data: bytes):
                 char = line_data.get(x)
                 if char and char.data:
                     line_str += char.data
-        
+
         lines.append(line_str.rstrip())
 
     return "".join(lines)
 
-'''
+
+"""
 Receive WRAPPER_SESSION_ID, USER_MSG from helper.
 Send prompt to vllm, and send the response to wrapper
-'''
+"""
+
+
 def handle_helper(conn, data: bytes, host: str):
-    wrapper_session_id, user_msg = data.decode(encoding='utf-8').split('\x1f') # WRAPPER_SESSION_ID + \x1f + USER_MSG
-    
+    wrapper_session_id, user_msg = data.decode(encoding="utf-8").split(
+        "\x1f"
+    )  # WRAPPER_SESSION_ID + \x1f + USER_MSG
+
     print("received data:", user_msg)
-    
+
     with session_lock:
-        if(wrapper_session_id in wrapper_sessions):
+        if wrapper_session_id in wrapper_sessions:
             buffer = wrapper_sessions[wrapper_session_id]["buffer"]
             wrapper_connection = wrapper_sessions[wrapper_session_id]["connection"]
         else:
             print(f"Wrapper {wrapper_session_id} not found / disconnected.")
             return
-        
+
     # context = content_filter(buffer)
     # prompt = f"Context: {context}\nUser input: {user_msg}"
     prompt = user_msg
     suffix = vllm.completions(prompt, host)
-    if(suffix):
+    if suffix:
         wrapper_connection.send(suffix.encode())
     conn.close()
 
-'''
+
+"""
 Create a session id for wrapper.
 Get the bsh content from wrapper, and add to buffer.
-'''     
+"""
+
+
 def wrapper_server(session_id: str):
     while True:
         data = wrapper_sessions[session_id]["connection"].recv(1024)
-        
-        if(not data):
+
+        if not data:
             break
-        
+
         with session_lock:
-            if(session_id in wrapper_sessions):
+            if session_id in wrapper_sessions:
                 wrapper_sessions[session_id]["buffer"] += data
-    
+
     with session_lock:
         wrapper_sessions[session_id]["connection"].close()
         del wrapper_sessions[session_id]
-    
-    
+
+
 def main():
-    
+
     host_env = os.getenv("VLLM_SERVER_URL")
     if host_env:
         host = host_env
@@ -108,39 +115,39 @@ def main():
         host = DEFAULT_HOST
     if os.path.exists(DAEMON_PATH):
         os.remove(DAEMON_PATH)
-    
+
     server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     server.bind(DAEMON_PATH)
     server.listen(10)
-    
+
     print(f"Listening on {DAEMON_PATH}...")
-    
+
     while True:
         try:
             conn, _ = server.accept()
-            
+
             session_id = str(uuid.uuid4())
             data = conn.recv(1024)
-            if(b'NEW_SESSION_ID' in data):
+            if b"NEW_SESSION_ID" in data:
                 conn.send(session_id.encode())
-            
-            if(b'\x1f' in data):
+
+            if b"\x1f" in data:
                 Thread(target=handle_helper, args=(conn, data, host)).start()
-            else :
+            else:
                 wrapper_sessions[session_id] = {
                     "server": Thread(target=wrapper_server, args=(session_id,)),
                     "connection": conn,
-                    "buffer": b''
+                    "buffer": b"",
                 }
                 wrapper_sessions[session_id]["server"].start()
-                
-            
+
         except KeyboardInterrupt:
             break
         except Exception as e:
             print(f"Error: {e}")
 
     os.remove(DAEMON_PATH)
+
 
 if __name__ == "__main__":
     main()
